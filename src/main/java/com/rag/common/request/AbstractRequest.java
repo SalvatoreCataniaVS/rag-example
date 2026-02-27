@@ -1,4 +1,4 @@
-package com.rag.api;
+package com.rag.common.request;
 
 public class AbstractRequest {
 

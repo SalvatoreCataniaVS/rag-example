@@ -1,6 +1,10 @@
--- This file allow to write SQL commands that will be emitted in test and dev.
--- The commands are commented as their support depends of the database
--- insert into myentity (id, field) values(1, 'field-1');
--- insert into myentity (id, field) values(2, 'field-2');
--- insert into myentity (id, field) values(3, 'field-3');
--- alter sequence myentity_seq restart with 4;
+-- =============================================
+-- USERS
+-- =============================================
+
+INSERT INTO users (id, tenant_id, email, name, avatar_url, role, active, created_at, updated_at, last_login_at)
+VALUES
+    (random_uuid(), null, 'admin@rag.com',   'Admin User',   null, 'ADMIN', true, now(), now(), null),
+    (random_uuid(), null, 'mario@rag.com',   'Mario Rossi',  null, 'USER',  true, now(), now(), null),
+    (random_uuid(), null, 'giulia@rag.com',  'Giulia Bianchi', null, 'USER', true, now(), now(), null),
+    (random_uuid(), null, 'luca@rag.com',    'Luca Verdi',   null, 'USER',  false, now(), now(), null);
