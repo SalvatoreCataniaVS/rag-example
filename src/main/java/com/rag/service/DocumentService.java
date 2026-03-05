@@ -28,7 +28,7 @@ public class DocumentService {
     DocumentValidator documentValidator;
 
     @Inject
-    MinioService minioService;
+    S3Service s3Service;
 
     @Transactional
     public UploadDocumentResponse upload(InputStream fileStream, String fileName, String mimeType, long fileSize, UUID uploadedBy, UUID taskId) {
@@ -50,7 +50,7 @@ public class DocumentService {
         // Upload file to MinIO
         try {
             document.setStatus(DocumentStatus.PROCESSING);
-            String storagePath = minioService.upload(fileStream, fileName, mimeType, fileSize);
+            String storagePath = s3Service.upload(fileStream, fileName, mimeType, fileSize);
             document.setStoragePath(storagePath);
 
             // TODO: produce Kafka event for ingestion pipeline
@@ -96,7 +96,7 @@ public class DocumentService {
         Document document = documentValidator.findOrThrow(documentId);
 
         // Download file from MinIO
-        return minioService.download(document.getStoragePath());
+        return s3Service.download(document.getStoragePath());
     }
 
     @Transactional
@@ -105,7 +105,7 @@ public class DocumentService {
         Document document = documentValidator.findOrThrow(documentId);
 
         // Delete file from MinIO
-        minioService.delete(document.getStoragePath());
+        s3Service.delete(document.getStoragePath());
 
         // Delete metadata from DB
         repository.delete(document);

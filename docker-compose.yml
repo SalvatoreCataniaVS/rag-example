@@ -20,24 +20,40 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── MinIO ──────────────────────────────────────────────────────────────────
-  minio:
-    image: minio/minio:latest
-    container_name: rag-minio
-    command: server /data --console-address ":9001"
+  # ─── LocalStack (S3) ────────────────────────────────────────────────────────
+  localstack:
+    image: localstack/localstack:3.4
+    container_name: rag-localstack
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      SERVICES: s3
+      DEFAULT_REGION: eu-west-1
+      AWS_DEFAULT_REGION: eu-west-1
     ports:
-      - "9000:9000"   # API endpoint (used by the app)
-      - "9001:9001"   # Web console (browser UI)
+      - "4566:4566"   # API endpoint unico per tutti i servizi LocalStack
     volumes:
-      - minio-data:/data
+      - localstack-data:/var/lib/localstack
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ─── LocalStack Init (crea il bucket automaticamente) ───────────────────────
+  localstack-init:
+    image: amazon/aws-cli:latest
+    container_name: rag-localstack-init
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: eu-west-1
+    entrypoint: >
+      /bin/sh -c "
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://rag-documents --region eu-west-1 &&
+        echo 'Bucket rag-documents created successfully'
+      "
+    depends_on:
+      localstack:
+        condition: service_healthy
 
   # ─── Redis ──────────────────────────────────────────────────────────────────
   redis:
@@ -80,6 +96,6 @@ services:
 
 volumes:
   postgres-data:
-  minio-data:
+  localstack-data:
   redis-data:
   kafka-data:
