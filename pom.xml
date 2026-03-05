@@ -61,11 +61,6 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-jdbc-postgresql</artifactId>
         </dependency>
-        <dependency>
-            <!-- Dev only — in-memory DB when Postgres is not available -->
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-jdbc-h2</artifactId>
-        </dependency>
 
         <!-- ─── SECURITY ─────────────────────────────────────────────────── -->
         <dependency>
@@ -89,6 +84,45 @@
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
             <version>8.5.7</version>
+        </dependency>
+
+        <!-- ─── LANGCHAIN4J ──────────────────────────────────────────────── -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>0.36.2</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-google-ai-gemini</artifactId>
+            <version>0.36.2</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-pgvector</artifactId>
+            <version>0.36.2</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-document-parser-apache-pdfbox</artifactId>
+            <version>0.36.2</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-document-parser-apache-poi</artifactId>
+            <version>0.36.2</version>
+        </dependency>
+
+        <!-- ─── KAFKA ─────────────────────────────────────────────────────── -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-messaging-kafka</artifactId>
+        </dependency>
+
+        <!-- ─── OPENAPI / SWAGGER ─────────────────────────────────────────── -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-openapi</artifactId>
         </dependency>
 
         <!-- ─── UTILITIES ────────────────────────────────────────────────── -->
