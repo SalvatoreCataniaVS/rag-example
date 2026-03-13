@@ -28,15 +28,16 @@ public class ChatHelper {
     @Inject
     ObjectMapper objectMapper;
 
-    // Builds the full message list: system prompt + past history + current question with context
     public List<ChatMessage> buildMessageHistory(String systemPrompt,
                                                  Conversation conversation,
                                                  List<EmbeddingMatch<TextSegment>> matches,
                                                  String question) {
         List<ChatMessage> messages = new ArrayList<>();
 
+        // Add system prompt
         messages.add(SystemMessage.from(systemPrompt));
 
+        // Replay past conversation turns
         for (ConversationMessage past : conversation.getMessages()) {
             if (past.getRole() == MessageRole.USER) {
                 messages.add(UserMessage.from(past.getContent()));
@@ -45,17 +46,19 @@ public class ChatHelper {
             }
         }
 
+        // Append current question with retrieved context
         messages.add(UserMessage.from(buildPromptWithContext(matches, question)));
 
         return messages;
     }
 
-    // Builds a single-turn prompt injecting retrieved chunks as context
     public String buildPromptWithContext(List<EmbeddingMatch<TextSegment>> matches, String question) {
+        // Return question as-is if no context is available
         if (matches.isEmpty()) {
             return question;
         }
 
+        // Build context block from retrieved chunks
         StringBuilder context = new StringBuilder();
         for (int i = 0; i < matches.size(); i++) {
             context.append("--- Source ").append(i + 1).append(" ---\n");
@@ -69,8 +72,8 @@ public class ChatHelper {
                 """.formatted(context, question);
     }
 
-    // Maps embedding matches to ChatSourceChunk DTOs
     public List<ChatSourceChunk> buildSources(List<EmbeddingMatch<TextSegment>> matches) {
+        // Map each embedding match to a ChatSourceChunk DTO
         return matches.stream()
                 .map(match -> {
                     String docIdMeta = match.embedded().metadata().getString("documentId");
@@ -83,8 +86,8 @@ public class ChatHelper {
                 .toList();
     }
 
-    // Persists user message and assistant response (with serialized sources) to the conversation
     public void saveMessages(Conversation conversation, String question, String answer, List<ChatSourceChunk> sources) {
+        // Persist user message
         ConversationMessage userMessage = ConversationMessage.builder()
                 .conversation(conversation)
                 .role(MessageRole.USER)
@@ -92,6 +95,7 @@ public class ChatHelper {
                 .build();
         conversation.getMessages().add(userMessage);
 
+        // Serialize sources to JSON
         String sourcesJson = null;
         try {
             sourcesJson = objectMapper.writeValueAsString(sources);
@@ -99,6 +103,7 @@ public class ChatHelper {
             LOG.warnf("Failed to serialize sources for conversation %s", conversation.getId());
         }
 
+        // Persist assistant message with sources
         ConversationMessage assistantMessage = ConversationMessage.builder()
                 .conversation(conversation)
                 .role(MessageRole.ASSISTANT)
@@ -108,8 +113,8 @@ public class ChatHelper {
         conversation.getMessages().add(assistantMessage);
     }
 
-    // Derives a conversation title from the first question (max 80 chars)
     public String deriveTitle(String question) {
+        // Truncate to 80 chars if the question exceeds the title limit
         return question.length() > 80
                 ? question.substring(0, 80) + "..."
                 : question;
