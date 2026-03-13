@@ -22,7 +22,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,8 +29,6 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class PredictService {
-
-    private static final Logger LOG = Logger.getLogger(PredictService.class);
 
     private static final String SYSTEM_PROMPT = """
             You are a helpful assistant that answers questions based strictly on the provided context.
@@ -57,23 +54,25 @@ public class PredictService {
     @ConfigProperty(name = "gemini.chat.model", defaultValue = "gemini-2.0-flash")
     String chatModelName;
 
-    // ─── Stateful chat — saves history to DB ─────────────────────────────────
-
     @Transactional
     public ChatResponse chat(ChatRequest request, UUID userId) {
+        // Resolve or create conversation
         Conversation conversation = resolveConversation(request, userId);
 
+        // Search for relevant chunks in pgvector
         List<EmbeddingMatch<TextSegment>> matches = searchChunks(request.getQuestion(), request.getTopK());
         List<ChatSourceChunk> sources = chatHelper.buildSources(matches);
 
+        // Build full message history and call Gemini
         List<ChatMessage> messages = chatHelper.buildMessageHistory(
                 SYSTEM_PROMPT, conversation, matches, request.getQuestion()
         );
-
         String answer = callGemini(messages);
 
+        // Persist user message and assistant response
         chatHelper.saveMessages(conversation, request.getQuestion(), answer, sources);
 
+        // Map to response
         return ChatResponse.builder()
                 .conversationId(conversation.getId())
                 .answer(answer)
@@ -81,11 +80,11 @@ public class PredictService {
                 .build();
     }
 
-    // ─── Stateless chat — no persistence ─────────────────────────────────────
-
     public ChatResponse chatIncognito(ChatRequest request) {
+        // Search for relevant chunks in pgvector
         List<EmbeddingMatch<TextSegment>> matches = searchChunks(request.getQuestion(), request.getTopK());
 
+        // Return early if no relevant documents found
         if (matches.isEmpty()) {
             return ChatResponse.builder()
                     .answer("No relevant documents found to answer your question.")
@@ -93,11 +92,13 @@ public class PredictService {
                     .build();
         }
 
+        // Build single-turn prompt and call Gemini
         List<ChatMessage> messages = List.of(
                 SystemMessage.from(SYSTEM_PROMPT),
                 UserMessage.from(chatHelper.buildPromptWithContext(matches, request.getQuestion()))
         );
 
+        // Map to response
         return ChatResponse.builder()
                 .answer(callGemini(messages))
                 .sources(chatHelper.buildSources(matches))
@@ -108,17 +109,18 @@ public class PredictService {
 
     private Conversation resolveConversation(ChatRequest request, UUID userId) {
         if (request.getConversationId() != null) {
+            // Resume existing conversation
             return conversationRepository.findByIdOptional(request.getConversationId())
                     .orElseThrow(() -> new NotFoundException("Conversation not found: " + request.getConversationId()));
         }
 
+        // Create new conversation
         Conversation conversation = Conversation.builder()
                 .userId(userId)
                 .taskId(request.getTaskId())
                 .title(chatHelper.deriveTitle(request.getQuestion()))
                 .messages(new ArrayList<>())
                 .build();
-
         conversationRepository.persist(conversation);
         return conversation;
     }

@@ -27,8 +27,10 @@ public class ConversationService {
     ObjectMapper objectMapper;
 
     public ConversationSummaryResponse listConversations(UUID userId) {
+        // Retrieve all conversations for the user ordered by most recent
         List<Conversation> conversations = conversationRepository.findByUserId(userId);
 
+        // Map entity list to response
         List<ConversationSummaryResponse.ConversationSummary> summaries = conversations.stream()
                 .map(c -> ConversationSummaryResponse.ConversationSummary.builder()
                         .id(c.getId())
@@ -44,12 +46,14 @@ public class ConversationService {
     }
 
     public ConversationDetailResponse getConversation(UUID conversationId) {
+        // Find conversation
         Conversation conversation = conversationRepository.findByIdOptional(conversationId)
                 .orElseThrow(() -> new NotFoundException("Conversation not found: " + conversationId));
 
-        // Group messages into turns — each turn is a USER message followed by an ASSISTANT message
+        // Group messages into turns
         List<ConversationDetailResponse.ConversationTurn> turns = buildTurns(conversation.getMessages());
 
+        // Map entity to response
         return ConversationDetailResponse.builder()
                 .conversationId(conversation.getId())
                 .title(conversation.getTitle())
@@ -57,6 +61,8 @@ public class ConversationService {
                 .turns(turns)
                 .build();
     }
+
+    // ─── Private ──────────────────────────────────────────────────────────────
 
     // Pairs USER and ASSISTANT messages into turns sequentially
     private List<ConversationDetailResponse.ConversationTurn> buildTurns(List<ConversationMessage> messages) {
@@ -72,8 +78,8 @@ public class ConversationService {
                 continue;
             }
 
+            // Deserialize sources and map to turn
             List<ChatSourceChunk> sources = deserializeSources(assistantMsg.getSources());
-
             turns.add(ConversationDetailResponse.ConversationTurn.builder()
                     .question(userMsg.getContent())
                     .answer(assistantMsg.getContent())
