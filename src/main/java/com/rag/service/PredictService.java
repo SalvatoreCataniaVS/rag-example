@@ -36,6 +36,8 @@ public class PredictService {
             Always be concise and precise.
             """;
 
+    private static final String NO_CONTEXT_ANSWER = "No relevant documents found to answer your question.";
+
     @Inject
     EmbeddingModel embeddingModel;
 
@@ -54,6 +56,9 @@ public class PredictService {
     @ConfigProperty(name = "gemini.chat.model", defaultValue = "gemini-2.0-flash")
     String chatModelName;
 
+    @ConfigProperty(name = "predict.fallback-to-model", defaultValue = "false")
+    boolean fallbackToModel;
+
     @Transactional
     public ChatResponse chat(ChatRequest request, UUID userId) {
         // Resolve or create conversation
@@ -62,6 +67,15 @@ public class PredictService {
         // Search for relevant chunks in pgvector
         List<EmbeddingMatch<TextSegment>> matches = searchChunks(request.getQuestion(), request.getTopK());
         List<ChatSourceChunk> sources = chatHelper.buildSources(matches);
+
+        // Return early if no relevant chunks found and fallback is disabled
+        if (matches.isEmpty() && !fallbackToModel) {
+            return ChatResponse.builder()
+                    .conversationId(conversation.getId())
+                    .answer(NO_CONTEXT_ANSWER)
+                    .sources(List.of())
+                    .build();
+        }
 
         // Build full message history and call Gemini
         List<ChatMessage> messages = chatHelper.buildMessageHistory(
@@ -84,10 +98,10 @@ public class PredictService {
         // Search for relevant chunks in pgvector
         List<EmbeddingMatch<TextSegment>> matches = searchChunks(request.getQuestion(), request.getTopK());
 
-        // Return early if no relevant documents found
-        if (matches.isEmpty()) {
+        // Return early if no relevant chunks found and fallback is disabled
+        if (matches.isEmpty() && !fallbackToModel) {
             return ChatResponse.builder()
-                    .answer("No relevant documents found to answer your question.")
+                    .answer(NO_CONTEXT_ANSWER)
                     .sources(List.of())
                     .build();
         }
