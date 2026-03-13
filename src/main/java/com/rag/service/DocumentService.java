@@ -3,6 +3,8 @@ package com.rag.service;
 import com.rag.api.document.*;
 import com.rag.common.exception.InternalServerException;
 import com.rag.mapper.DocumentMapper;
+import com.rag.messaging.DocumentIngestionEvent;
+import com.rag.messaging.IngestionProducer;
 import com.rag.repository.DocumentRepository;
 import com.rag.repository.entity.Document;
 import com.rag.repository.entity.DocumentStatus;
@@ -30,6 +32,9 @@ public class DocumentService {
     @Inject
     S3Service s3Service;
 
+    @Inject
+    IngestionProducer ingestionProducer;
+
     @Transactional
     public UploadDocumentResponse upload(InputStream fileStream, String fileName, String mimeType, long fileSize, UUID uploadedBy, UUID taskId) {
         // Validate mime type
@@ -53,8 +58,14 @@ public class DocumentService {
             String storagePath = s3Service.upload(fileStream, fileName, mimeType, fileSize);
             document.setStoragePath(storagePath);
 
-            // TODO: produce Kafka event for ingestion pipeline
-            // document.setStatus will be set to READY by the ingestion consumer
+            // Produce evento Kafka per la pipeline di ingestion
+            ingestionProducer.send(DocumentIngestionEvent.builder()
+                    .documentId(document.getId())
+                    .taskId(document.getTaskId())
+                    .storagePath(storagePath)
+                    .mimeType(mimeType)
+                    .fileName(fileName)
+                    .build());
 
         } catch (Exception e) {
             document.setStatus(DocumentStatus.FAILED);
