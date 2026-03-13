@@ -40,7 +40,7 @@ public class DocumentService {
         // Validate mime type
         documentValidator.validateMimeType(mimeType);
 
-        // Save metadata to DB with UPLOADED status
+        // Map request to entity and persist
         Document document = Document.builder()
                 .fileName(fileName)
                 .mimeType(mimeType)
@@ -52,13 +52,12 @@ public class DocumentService {
                 .build();
         repository.persist(document);
 
-        // Upload file to MinIO
+        // Upload file to S3 and trigger ingestion pipeline
         try {
             document.setStatus(DocumentStatus.PROCESSING);
             String storagePath = s3Service.upload(fileStream, fileName, mimeType, fileSize);
             document.setStoragePath(storagePath);
 
-            // Produce evento Kafka per la pipeline di ingestion
             ingestionProducer.send(DocumentIngestionEvent.builder()
                     .documentId(document.getId())
                     .taskId(document.getTaskId())
@@ -106,7 +105,7 @@ public class DocumentService {
         // Find document
         Document document = documentValidator.findOrThrow(documentId);
 
-        // Download file from MinIO
+        // Download file from S3
         return s3Service.download(document.getStoragePath());
     }
 
@@ -115,10 +114,10 @@ public class DocumentService {
         // Find document
         Document document = documentValidator.findOrThrow(documentId);
 
-        // Delete file from MinIO
+        // Delete file from S3
         s3Service.delete(document.getStoragePath());
 
-        // Delete metadata from DB
+        // Delete document from DB
         repository.delete(document);
 
         // Map entity to response
